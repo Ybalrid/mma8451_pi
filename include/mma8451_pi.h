@@ -11,6 +11,7 @@ typedef int mma8451;
 #define MMA8451_PULLDOWN_ADDR 0x1C
 
 mma8451 mma8451_initialise(int device, int i2c_addr);
+void mma8451_get_raw_sample(mma8451 handle, char* output);
 
 typedef struct mma8451_vector3_
 {
