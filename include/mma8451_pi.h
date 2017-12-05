@@ -1,0 +1,25 @@
+#ifndef MMA8451_PI_INCLUDED
+#define MMA8451_PI_INCLUDED
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef int mma8451;
+
+#define MMA8451_DEFAULT_ADDR 0x1D
+#define MMA8451_PULLDOWN_ADDR 0x1C
+
+mma8451 mma8451_initialise(int device, int i2c_addr);
+
+typedef struct mma8451_vector3_
+{
+    float x, y, z;
+} mma8451_vector3;
+
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
