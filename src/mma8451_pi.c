@@ -1,5 +1,6 @@
 #include "mma8451_pi.h"
 #include <linux/i2c-dev.h>
+//#include <linux/i2c.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -10,20 +11,82 @@
 
 void write_byte(mma8451 handle, int reg, char data)
 {
-    char write_buffer[2];
+/*    char write_buffer[2];
     write_buffer[0] = reg & 0xFF;
     write_buffer[1] = data;
     write(handle, write_buffer, 2);
+
+*/
+
+    unsigned char outbuf[2];
+    struct i2c_rdwr_ioctl_data packets;
+    struct i2c_msg messages[1];
+
+    messages[0].addr  = 0x1C;
+    messages[0].flags = 0;
+    messages[0].len   = sizeof(outbuf);
+    messages[0].buf   = outbuf;
+
+    /* The first byte indicates which register we'll write */
+    outbuf[0] = reg;
+
+    /*
+     *      * The second byte indicates the value to write.  Note that for many
+     *           * devices, we can write multiple, sequential registers at once by
+     *                * simply making outbuf bigger.
+     *                     */
+    outbuf[1] = data;
+
+    /* Transfer the i2c packets to the kernel and verify it worked */
+    packets.msgs  = messages;
+    packets.nmsgs = 1;
+    if(ioctl(handle, I2C_RDWR, &packets) < 0) {
+        perror("Unable to send data");
+    }
+
 }
 
 char read_byte(mma8451 handle, int reg)
 {
-    char write_buffer[2];
+/*    char write_buffer[2];
     char data_read[1];
     write_buffer[0] = reg & 0xFF;
     write(handle, write_buffer, 1);
+
     read(handle, data_read, 1);
-    return data_read[0];
+    return data_read[0];*/
+
+
+    unsigned char inbuf, outbuf;
+    struct i2c_rdwr_ioctl_data packets;
+    struct i2c_msg messages[2];
+
+    /*
+     *      * In order to read a register, we first do a "dummy write" by writing
+     *           * 0 bytes to the register we want to read from.  This is similar to
+     *                * the packet in set_i2c_register, except it's 1 byte rather than 2.
+     *                     */
+    outbuf = reg;
+    messages[0].addr  = 0x1C;
+    messages[0].flags = 0;
+    messages[0].len   = sizeof(outbuf);
+    messages[0].buf   = &outbuf;
+
+    /* The data will get returned in this structure */
+    messages[1].addr  = 0x1C;
+    messages[1].flags = I2C_M_RD/* | I2C_M_NOSTART*/;
+    messages[1].len   = sizeof(inbuf);
+    messages[1].buf   = &inbuf;
+
+    /* Send the request to the kernel and get the result back */
+    packets.msgs      = messages;
+    packets.nmsgs     = 2;
+    if(ioctl(handle, I2C_RDWR, &packets) < 0) {
+        perror("Unable to send data");
+        return -1;
+    }
+
+    return inbuf;
 }
 
 void read_stream(mma8451 handle, int reg, char* output, size_t len)
@@ -42,7 +105,7 @@ mma8451 mma8451_initialise(int device, int addr)
     sprintf(buf, "/dev/i2c-%d", device);
     if ((handle = open(buf, O_RDWR)) < 0) return -2;
     if(ioctl(handle, I2C_SLAVE, addr) < 0) return -3;
-    
+
     //Check if we read correctly from the sensor
     char value = read_byte(handle, 0x0D);
     printf("whoami read %#02x\n", value);
