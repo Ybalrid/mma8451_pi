@@ -11,35 +11,26 @@
 
 void write_byte(mma8451 handle, int reg, char data)
 {
-/*    char write_buffer[2];
-    write_buffer[0] = reg & 0xFF;
-    write_buffer[1] = data;
-    write(handle, write_buffer, 2);
-
-*/
-
     unsigned char outbuf[2];
     struct i2c_rdwr_ioctl_data packets;
-    struct i2c_msg messages[1];
+    struct i2c_msg messages[1]; //We are just writing one byte to the device
 
     messages[0].addr  = handle.address;
     messages[0].flags = 0;
     messages[0].len   = sizeof(outbuf);
     messages[0].buf   = outbuf;
 
-    /* The first byte indicates which register we'll write */
+    //Register address
     outbuf[0] = reg;
-
-    /*
-     *      * The second byte indicates the value to write.  Note that for many
-     *           * devices, we can write multiple, sequential registers at once by
-     *                * simply making outbuf bigger.
-     *                     */
+    
+    //Data
     outbuf[1] = data;
-
-    /* Transfer the i2c packets to the kernel and verify it worked */
+    
+    //Configure packet list
     packets.msgs  = messages;
     packets.nmsgs = 1;
+
+    //Send to the bus
     if(ioctl(handle.file, I2C_RDWR, &packets) < 0) {
         perror("Unable to send data");
     }
@@ -48,44 +39,33 @@ void write_byte(mma8451 handle, int reg, char data)
 
 char read_byte(mma8451 handle, int reg)
 {
-/*    char write_buffer[2];
-    char data_read[1];
-    write_buffer[0] = reg & 0xFF;
-    write(handle, write_buffer, 1);
-
-    read(handle, data_read, 1);
-    return data_read[0];*/
-
-
     unsigned char inbuf, outbuf;
     struct i2c_rdwr_ioctl_data packets;
     struct i2c_msg messages[2];
-
-    /*
-     *      * In order to read a register, we first do a "dummy write" by writing
-     *           * 0 bytes to the register we want to read from.  This is similar to
-     *                * the packet in set_i2c_register, except it's 1 byte rather than 2.
-     *                     */
+    
+    //Send only the address in a write
     outbuf = reg;
     messages[0].addr  = handle.address;
     messages[0].flags = 0;
     messages[0].len   = sizeof(outbuf);
     messages[0].buf   = &outbuf;
-
-    /* The data will get returned in this structure */
+ 
+    //Structure where the data will be written
     messages[1].addr  = handle.address;
     messages[1].flags = I2C_M_RD/* | I2C_M_NOSTART*/;
     messages[1].len   = sizeof(inbuf);
     messages[1].buf   = &inbuf;
 
-    /* Send the request to the kernel and get the result back */
+    //Build packet list
     packets.msgs      = messages;
     packets.nmsgs     = 2;
+
+    //Send to the bus
     if(ioctl(handle.file, I2C_RDWR, &packets) < 0) {
         perror("Unable to send data");
-        return -1;
     }
 
+    //return the value
     return inbuf;
 }
 
@@ -103,13 +83,16 @@ mma8451 mma8451_initialise(int device, int addr)
     handle.file = -1;
     handle.address = addr;
     char buf[15];
-
+    
+    //Open /dev/i2c-x file without a buffer
     sprintf(buf, "/dev/i2c-%d", device);
     if ((handle.file = open(buf, O_RDWR)) < 0) 
     {
         handle.file = -2;
         return handle;
     }
+
+    //Configure slave i2c address via ioctl
     if(ioctl(handle.file, I2C_SLAVE, addr) < 0) 
     {
         handle.file = -3;
@@ -117,9 +100,12 @@ mma8451 mma8451_initialise(int device, int addr)
     }
 
     //Check if we read correctly from the sensor
-    char value = read_byte(handle, 0x0D);
-    printf("whoami read %#02x\n", value);
+    char whoami = read_byte(handle, 0x0D);
+    printf("whoami read %#02x\n", whoami);
 
+    //Undefined behavior for the rest of device operation if the device is not returning hex 1A
+    if(whoami != 0x1A) perror("mma451_pi warning: Device correctly intialized but not returning 0x1A at WHO_AM_I request.\n"
+                "Are you sure you are using a MMA8451 accelerometer on this address?");
 
     //Send reset request
     write_byte(handle, 0x2B, 0x40);
@@ -130,8 +116,12 @@ mma8451 mma8451_initialise(int device, int addr)
     write_byte(handle, 0x0E, 0x00); //2G range
     write_byte(handle, 0x2B, 0x02); //high resolution mode
     write_byte(handle, 0x2A, 0x01 | 0x04); //high rate low noise
+    
     //Deactivate fifo
     write_byte(handle, 0x09, 0);
+
+    printf("MMA8451 at address %#02x configured for real time sampling, in high rate, low noise mode, at high resolution, on a 2G max range\n", addr);
+
     return handle;
 }
 
