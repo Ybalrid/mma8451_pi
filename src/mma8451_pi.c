@@ -22,7 +22,7 @@ void write_byte(mma8451 handle, int reg, char data)
     struct i2c_rdwr_ioctl_data packets;
     struct i2c_msg messages[1];
 
-    messages[0].addr  = 0x1C;
+    messages[0].addr  = handle.address;
     messages[0].flags = 0;
     messages[0].len   = sizeof(outbuf);
     messages[0].buf   = outbuf;
@@ -40,7 +40,7 @@ void write_byte(mma8451 handle, int reg, char data)
     /* Transfer the i2c packets to the kernel and verify it worked */
     packets.msgs  = messages;
     packets.nmsgs = 1;
-    if(ioctl(handle, I2C_RDWR, &packets) < 0) {
+    if(ioctl(handle.file, I2C_RDWR, &packets) < 0) {
         perror("Unable to send data");
     }
 
@@ -67,13 +67,13 @@ char read_byte(mma8451 handle, int reg)
      *                * the packet in set_i2c_register, except it's 1 byte rather than 2.
      *                     */
     outbuf = reg;
-    messages[0].addr  = 0x1C;
+    messages[0].addr  = handle.address;
     messages[0].flags = 0;
     messages[0].len   = sizeof(outbuf);
     messages[0].buf   = &outbuf;
 
     /* The data will get returned in this structure */
-    messages[1].addr  = 0x1C;
+    messages[1].addr  = handle.address;
     messages[1].flags = I2C_M_RD/* | I2C_M_NOSTART*/;
     messages[1].len   = sizeof(inbuf);
     messages[1].buf   = &inbuf;
@@ -81,7 +81,7 @@ char read_byte(mma8451 handle, int reg)
     /* Send the request to the kernel and get the result back */
     packets.msgs      = messages;
     packets.nmsgs     = 2;
-    if(ioctl(handle, I2C_RDWR, &packets) < 0) {
+    if(ioctl(handle.file, I2C_RDWR, &packets) < 0) {
         perror("Unable to send data");
         return -1;
     }
@@ -99,12 +99,22 @@ void read_stream(mma8451 handle, int reg, char* output, size_t len)
 
 mma8451 mma8451_initialise(int device, int addr)
 {
-    mma8451 handle = -1;
+    mma8451 handle;
+    handle.file = -1;
+    handle.address = addr;
     char buf[15];
 
     sprintf(buf, "/dev/i2c-%d", device);
-    if ((handle = open(buf, O_RDWR)) < 0) return -2;
-    if(ioctl(handle, I2C_SLAVE, addr) < 0) return -3;
+    if ((handle.file = open(buf, O_RDWR)) < 0) 
+    {
+        handle.file = -2;
+        return handle;
+    }
+    if(ioctl(handle.file, I2C_SLAVE, addr) < 0) 
+    {
+        handle.file = -3;
+        return handle;
+    }
 
     //Check if we read correctly from the sensor
     char value = read_byte(handle, 0x0D);

@@ -5,7 +5,11 @@
 extern "C" {
 #endif
 
-typedef int mma8451;
+typedef struct mma8451_
+{
+    int file;
+    unsigned char address;
+} mma8451;
 
 #define MMA8451_DEFAULT_ADDR 0x1D
 #define MMA8451_PULLDOWN_ADDR 0x1C
