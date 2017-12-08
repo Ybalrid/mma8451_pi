@@ -10,6 +10,7 @@ typedef struct mma8451_
 {
     int file;
     unsigned char address;
+    unsigned char range;
 } mma8451;
 
 ///Default address of the sensor if you do nothing
@@ -32,6 +33,9 @@ typedef struct mma8451_vector3_
 
 ///write the content of register 0x01 to 0x06 to the output bufer. 
 void mma8451_get_raw_sample(mma8451 handle, char* output);
+
+///get the current acceleration vector
+mma8451_vector3 mma8451_get_acceleration_vector(mma8451 handle);
 
 #ifdef __cplusplus
 } //extern "C"

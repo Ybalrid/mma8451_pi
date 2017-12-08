@@ -111,7 +111,8 @@ mma8451 mma8451_initialise(int device, int addr)
     printf("Waiting for accelerometer to be reset\n");
     while(read_byte(handle, 0x2B) & 0x40); //reset done
     printf("Done\n");
-
+	
+    handle.range = 2;
     write_byte(handle, 0x0E, 0x00); //2G range
     write_byte(handle, 0x2B, 0x02); //high resolution mode
     write_byte(handle, 0x2A, 0x01 | 0x04); //high rate low noise
@@ -127,5 +128,51 @@ mma8451 mma8451_initialise(int device, int addr)
 void mma8451_get_raw_sample(mma8451 handle, char* output)
 {
     read_stream(handle, 0x01, output, 6);
+}
+
+inline int get_divider(const unsigned char range)
+{
+	switch (range)
+	{
+		default:
+			perror("unknown range. use 2, 4 or 8 only!");
+		case 2:
+			return 1024;
+		case 4:
+			return 2048;
+		case 8:
+			return 4096;
+
+	}
+}
+
+mma8451_vector3 mma8451_get_acceleration_vector(mma8451 handle)
+{
+	unsigned char buffer[6];
+	mma8451_vector3 vect;
+	int x, y, z;
+	
+	mma8451_get_raw_sample(handle, buffer);
+	
+	x = buffer[0]; 
+	x <<= 8;
+	x |= buffer[1];
+	x >>= 2;
+	
+	y = buffer[2]; 
+	y <<= 8;
+	y |= buffer[3];
+	y >>= 2;
+	
+	z = buffer[4]; 
+	z <<= 8;
+	z |= buffer[5];
+	z >>= 2;
+
+	vect.x = (float) x / get_divider(handle.range);
+	vect.y = (float) y / get_divider(handle.range);
+	vect.z = (float) z / get_divider(handle.range);
+	
+	return vect;
 }
 
