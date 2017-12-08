@@ -111,9 +111,8 @@ mma8451 mma8451_initialise(int device, int addr)
     printf("Waiting for accelerometer to be reset\n");
     while(read_byte(&handle, 0x2B) & 0x40); //reset done
     printf("Done\n");
-	
-	handle.range = 2;
-    write_byte(&handle, 0x0E, 0x00); //2G range
+    
+    mma8451_set_range(&handle, 2);
     write_byte(&handle, 0x2B, 0x02); //high resolution mode
     write_byte(&handle, 0x2A, 0x01 | 0x04); //high rate low noise
     
@@ -136,11 +135,11 @@ inline int get_divider(const unsigned char range)
 	{
 		default:
 			perror("unknown range. use 2, 4 or 8 only!");
-		case 2:
+		case 8:
 			return 1024;
 		case 4:
 			return 2048;
-		case 8:
+		case 2:
 			return 4096;
 
 	}
