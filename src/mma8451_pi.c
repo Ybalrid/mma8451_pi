@@ -8,13 +8,13 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-void write_byte(mma8451 handle, int reg, char data)
+void write_byte(mma8451* handle, int reg, char data)
 {
     unsigned char outbuf[2];
     struct i2c_rdwr_ioctl_data packets;
     struct i2c_msg messages[1]; //We are just writing one byte to the device
 
-    messages[0].addr  = handle.address;
+    messages[0].addr  = handle->address;
     messages[0].flags = 0;
     messages[0].len   = sizeof(outbuf);
     messages[0].buf   = outbuf;
@@ -30,13 +30,13 @@ void write_byte(mma8451 handle, int reg, char data)
     packets.nmsgs = 1;
 
     //Send to the bus
-    if(ioctl(handle.file, I2C_RDWR, &packets) < 0) {
+    if(ioctl(handle->file, I2C_RDWR, &packets) < 0) {
         perror("Unable to send data");
     }
 
 }
 
-char read_byte(mma8451 handle, int reg)
+char read_byte(mma8451* handle, int reg)
 {
     unsigned char inbuf, outbuf;
     struct i2c_rdwr_ioctl_data packets;
@@ -44,13 +44,13 @@ char read_byte(mma8451 handle, int reg)
     
     //Send only the address in a write
     outbuf = reg;
-    messages[0].addr  = handle.address;
+    messages[0].addr  = handle->address;
     messages[0].flags = 0;
     messages[0].len   = sizeof(outbuf);
     messages[0].buf   = &outbuf;
  
     //Structure where the data will be written
-    messages[1].addr  = handle.address;
+    messages[1].addr  = handle->address;
     messages[1].flags = I2C_M_RD/* | I2C_M_NOSTART*/;
     messages[1].len   = sizeof(inbuf);
     messages[1].buf   = &inbuf;
@@ -60,7 +60,7 @@ char read_byte(mma8451 handle, int reg)
     packets.nmsgs     = 2;
 
     //Send to the bus
-    if(ioctl(handle.file, I2C_RDWR, &packets) < 0) {
+    if(ioctl(handle->file, I2C_RDWR, &packets) < 0) {
         perror("Unable to send data");
     }
 
@@ -68,7 +68,7 @@ char read_byte(mma8451 handle, int reg)
     return inbuf;
 }
 
-void read_stream(mma8451 handle, int reg, char* output, size_t len)
+void read_stream(mma8451* handle, int reg, char* output, size_t len)
 {
     size_t i; for(i = 0; i < len; i++)
     {
@@ -79,27 +79,27 @@ void read_stream(mma8451 handle, int reg, char* output, size_t len)
 mma8451 mma8451_initialise(int device, int addr)
 {
     mma8451 handle;
-    handle.file = -1;
-    handle.address = addr;
+   	handle.file = -1;
+   	handle.address = addr;
     char buf[15];
     
     //Open /dev/i2c-x file without a buffer
     sprintf(buf, "/dev/i2c-%d", device);
     if ((handle.file = open(buf, O_RDWR)) < 0) 
     {
-        handle.file = -2;
+       	handle.file = -2;
         return handle;
     }
 
     //Configure slave i2c address via ioctl
     if(ioctl(handle.file, I2C_SLAVE, addr) < 0) 
     {
-        handle.file = -3;
+       	handle.file = -3;
         return handle;
     }
 
     //Check if we read correctly from the sensor
-    char whoami = read_byte(handle, 0x0D);
+    char whoami = read_byte(&handle, 0x0D);
     printf("whoami read %#02x\n", whoami);
 
     //Undefined behavior for the rest of device operation if the device is not returning hex 1A
@@ -107,25 +107,25 @@ mma8451 mma8451_initialise(int device, int addr)
                 "Are you sure you are using a MMA8451 accelerometer on this address?");
 
     //Send reset request
-    write_byte(handle, 0x2B, 0x40);
+    write_byte(&handle, 0x2B, 0x40);
     printf("Waiting for accelerometer to be reset\n");
-    while(read_byte(handle, 0x2B) & 0x40); //reset done
+    while(read_byte(&handle, 0x2B) & 0x40); //reset done
     printf("Done\n");
 	
-    handle.range = 2;
-    write_byte(handle, 0x0E, 0x00); //2G range
-    write_byte(handle, 0x2B, 0x02); //high resolution mode
-    write_byte(handle, 0x2A, 0x01 | 0x04); //high rate low noise
+	handle.range = 2;
+    write_byte(&handle, 0x0E, 0x00); //2G range
+    write_byte(&handle, 0x2B, 0x02); //high resolution mode
+    write_byte(&handle, 0x2A, 0x01 | 0x04); //high rate low noise
     
     //Deactivate fifo
-    write_byte(handle, 0x09, 0);
+    write_byte(&handle, 0x09, 0);
 
     printf("MMA8451 at address %#02x configured for real time sampling, in high rate, low noise mode, at high resolution, on a 2G max range\n", addr);
 
     return handle;
 }
 
-void mma8451_get_raw_sample(mma8451 handle, char* output)
+void mma8451_get_raw_sample(mma8451* handle, char* output)
 {
     read_stream(handle, 0x01, output, 6);
 }
@@ -146,7 +146,7 @@ inline int get_divider(const unsigned char range)
 	}
 }
 
-mma8451_vector3 mma8451_get_acceleration_vector(mma8451 handle)
+mma8451_vector3 mma8451_get_acceleration_vector(mma8451* handle)
 {
 	unsigned char buffer[6];
 	mma8451_vector3 vect;
@@ -169,10 +169,32 @@ mma8451_vector3 mma8451_get_acceleration_vector(mma8451 handle)
 	z |= buffer[5];
 	z >>= 2;
 
-	vect.x = (float) x / get_divider(handle.range);
-	vect.y = (float) y / get_divider(handle.range);
-	vect.z = (float) z / get_divider(handle.range);
+	vect.x = (float) x / get_divider(handle->range);
+	vect.y = (float) y / get_divider(handle->range);
+	vect.z = (float) z / get_divider(handle->range);
 	
 	return vect;
+}
+
+void mma8451_set_range(mma8451* handle, unsigned char range)
+{
+	handle->range = range;
+	unsigned char XYZ_DATA_CFG;
+	switch(range)
+	{
+		default:
+			perror("unknown range. use 2, 4 or 8 only!");
+		case 2:
+			XYZ_DATA_CFG = 0x00;
+			break;
+		case 4:
+			XYZ_DATA_CFG = 0x01;
+			break;
+		case 8:
+			XYZ_DATA_CFG = 0x02;
+			break;
+	}
+
+	write_byte(handle, 0x02, XYZ_DATA_CFG);
 }
 
