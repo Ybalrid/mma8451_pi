@@ -9,7 +9,7 @@
 #include <fcntl.h>
 #include <stdint.h>
 
-void write_byte(mma8451* handle, int reg, char data)
+void mma8451_write_byte(mma8451* handle, int reg, char data)
 {
     unsigned char outbuf[2];
     struct i2c_rdwr_ioctl_data packets;
@@ -31,13 +31,14 @@ void write_byte(mma8451* handle, int reg, char data)
     packets.nmsgs = 1;
 
     //Send to the bus
-    if(ioctl(handle->file, I2C_RDWR, &packets) < 0) {
+    if(ioctl(handle->file, I2C_RDWR, &packets) < 0) 
+    {
         perror("Unable to send data");
     }
 
 }
 
-char read_byte(mma8451* handle, int reg)
+char mma8451_read_byte(mma8451* handle, int reg)
 {
     unsigned char inbuf, outbuf;
     struct i2c_rdwr_ioctl_data packets;
@@ -52,7 +53,7 @@ char read_byte(mma8451* handle, int reg)
 
     //Structure where the data will be written
     messages[1].addr  = handle->address;
-    messages[1].flags = I2C_M_RD/* | I2C_M_NOSTART*/;
+    messages[1].flags = I2C_M_RD;
     messages[1].len   = sizeof(inbuf);
     messages[1].buf   = &inbuf;
 
@@ -61,7 +62,8 @@ char read_byte(mma8451* handle, int reg)
     packets.nmsgs     = 2;
 
     //Send to the bus
-    if(ioctl(handle->file, I2C_RDWR, &packets) < 0) {
+    if(ioctl(handle->file, I2C_RDWR, &packets) < 0) 
+    {
         perror("Unable to send data");
     }
 
@@ -73,7 +75,7 @@ void read_stream(mma8451* handle, int reg, char* output, size_t len)
 {
     size_t i; for(i = 0; i < len; i++)
     {
-        output[i] = read_byte(handle, reg + i);
+        output[i] = mma8451_read_byte(handle, reg + i);
     }
 }
 
@@ -83,6 +85,8 @@ mma8451 mma8451_initialise(int device, int addr)
     handle.file = -1;
     handle.address = addr;
     char buf[15];
+    
+    printf("Initalising MMA8451 sensor at address %#02x\n", addr);
 
     //Open /dev/i2c-x file without a buffer
     sprintf(buf, "/dev/i2c-%d", device);
@@ -100,7 +104,7 @@ mma8451 mma8451_initialise(int device, int addr)
     }
 
     //Check if we read correctly from the sensor
-    char whoami = read_byte(&handle, 0x0D);
+    char whoami = mma8451_read_byte(&handle, 0x0D);
     printf("whoami read %#02x\n", whoami);
 
     //Undefined behavior for the rest of device operation if the device is not returning hex 1A
@@ -108,19 +112,19 @@ mma8451 mma8451_initialise(int device, int addr)
             "Are you sure you are using a MMA8451 accelerometer on this address?");
 
     //Send reset request
-    write_byte(&handle, 0x2B, 0x40);
+    mma8451_write_byte(&handle, 0x2B, 0x40);
     printf("Waiting for accelerometer to be reset\n");
-    while(read_byte(&handle, 0x2B) & 0x40); //reset done
+    while(mma8451_read_byte(&handle, 0x2B) & 0x40); //reset done
     printf("Done\n");
 
     mma8451_set_range(&handle, 2);
-    write_byte(&handle, 0x2B, 0x02); //high resolution mode
-    write_byte(&handle, 0x2A, 0x01 | 0x04); //high rate low noise
+    mma8451_write_byte(&handle, 0x2B, 0x02); //high resolution mode
+    mma8451_write_byte(&handle, 0x2A, 0x01 | 0x04); //high rate low noise
 
     //Deactivate fifo
-    write_byte(&handle, 0x09, 0);
+    mma8451_write_byte(&handle, 0x09, 0);
     //turn on orientation configuration
-    write_byte(&handle, 0x11, 0x40);
+    mma8451_write_byte(&handle, 0x11, 0x40);
 
     printf("MMA8451 at address %#02x configured for real time sampling, in high rate, low noise mode, at high resolution, on a 2G max range\n", addr);
 
@@ -197,9 +201,9 @@ void mma8451_set_range(mma8451* handle, unsigned char range)
             break;
     }
 
-    REG1 = read_byte(handle, 0x2A) | 0x01;
-    write_byte(handle, 0x2A, 0x00);
-    write_byte(handle, 0x0E, XYZ_DATA_CFG);
-    write_byte(handle, 0x2A, REG1);
+    REG1 = mma8451_read_byte(handle, 0x2A) | 0x01;
+    mma8451_write_byte(handle, 0x2A, 0x00);
+    mma8451_write_byte(handle, 0x0E, XYZ_DATA_CFG);
+    mma8451_write_byte(handle, 0x2A, REG1);
 }
 
