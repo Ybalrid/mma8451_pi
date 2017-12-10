@@ -71,11 +71,35 @@ char mma8451_read_byte(mma8451* handle, int reg)
     return inbuf;
 }
 
-void read_stream(mma8451* handle, int reg, char* output, size_t len)
+void mma8451_read_multibyte(mma8451* handle, int reg, char* output, size_t len)
 {
-    size_t i; for(i = 0; i < len; i++)
+    unsigned char outbuf;
+    struct i2c_rdwr_ioctl_data packets;
+    struct i2c_msg messages[2];
+
+    //Send only the address in a write
+    outbuf = reg;
+    messages[0].addr  = handle->address;
+    messages[0].flags = 0;
+    messages[0].len   = sizeof(outbuf);
+    messages[0].buf   = &outbuf;
+
+    //Structure where the data will be written
+    //
+    //the mma8451 auto-increment address on successive reads. Reading 3 bytes from 0x01 will read 0x01, 0x02 and 0x03 
+    messages[1].addr  = handle->address;
+    messages[1].flags = I2C_M_RD;
+    messages[1].len   = len;    //trusting the user that the lengs is less or equals the size of whatever's output is pointing to
+    messages[1].buf   = output; //pointer given by the user
+
+    //Build packet list
+    packets.msgs      = messages;
+    packets.nmsgs     = 2;
+
+    //Send to the bus
+    if(ioctl(handle->file, I2C_RDWR, &packets) < 0) 
     {
-        output[i] = mma8451_read_byte(handle, reg + i);
+        perror("Unable to send data");
     }
 }
 
@@ -133,7 +157,7 @@ mma8451 mma8451_initialise(int device, int addr)
 
 void mma8451_get_raw_sample(mma8451* handle, char* output)
 {
-    read_stream(handle, 0x01, output, 6);
+    mma8451_read_multibyte(handle, 0x01, output, 6);
 }
 
 uint16_t get_divider(const unsigned char range)
