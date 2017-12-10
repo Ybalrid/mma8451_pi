@@ -8,9 +8,17 @@ extern "C" {
 ///Structure that represent a mma8451 sensor. Get it from the initialise function and give it the other ones
 typedef struct mma8451_
 {
+    ///File descriptor that point to an i2c device in /dev
     int file;
+
+    ///Address of the sensor on the i2c bus
     unsigned char address;
+
+    ///Current range setting
     unsigned char range;
+
+    ///raw data as sent by the sensor
+    unsigned char raw_data[6];
 } mma8451;
 
 ///Default address of the sensor if you do nothing
@@ -36,6 +44,7 @@ void mma8451_get_raw_sample(mma8451* handle, char* output);
 
 ///get the current acceleration vector
 mma8451_vector3 mma8451_get_acceleration_vector(mma8451* handle);
+void mma8451_get_acceleration(mma8451* handle, mma8451_vector3* vector);
 
 ///set the "range" (aka:the max acceleration we register)
 void mma8451_set_range(mma8451* handle, unsigned char range);

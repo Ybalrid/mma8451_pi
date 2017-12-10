@@ -152,34 +152,41 @@ uint16_t get_divider(const unsigned char range)
     }
 }
 
-mma8451_vector3 mma8451_get_acceleration_vector(mma8451* handle)
+void mma8451_get_acceleration(mma8451* handle, mma8451_vector3* vect)
 {
-    unsigned char buffer[6];
-    mma8451_vector3 vect;
     int16_t x, y, z;
 
-    mma8451_get_raw_sample(handle, buffer);
-
-    x = buffer[0]; 
+    mma8451_get_raw_sample(handle, handle->raw_data);
+    
+    //Convert the 14bit two's complement numbers into 16bit integers that makes some sense
+    x = handle->raw_data[0]; 
     x <<= 8;
-    x |= buffer[1];
+    x |= handle->raw_data[1];
     x >>= 2;
 
-    y = buffer[2]; 
+    y = handle->raw_data[2]; 
     y <<= 8;
-    y |= buffer[3];
+    y |= handle->raw_data[3];
     y >>= 2;
 
-    z = buffer[4]; 
+    z = handle->raw_data[4]; 
     z <<= 8;
-    z |= buffer[5];
+    z |= handle->raw_data[5];
     z >>= 2;
 
-    vect.x = (float) x / get_divider(handle->range);
-    vect.y = (float) y / get_divider(handle->range);
-    vect.z = (float) z / get_divider(handle->range);
+    //Result is in "count" over a number that depend on the range.
+    //Computer a float that represent the number of G experienced
+    //on each axies and store them in the vector
+    vect->x = (float) x / get_divider(handle->range);
+    vect->y = (float) y / get_divider(handle->range);
+    vect->z = (float) z / get_divider(handle->range);
+}
 
-    return vect;
+mma8451_vector3 mma8451_get_acceleration_vector(mma8451* handle)
+{
+    mma8451_vector3 vector;
+    mma8451_get_acceleration(handle, &vector);
+    return vector;
 }
 
 void mma8451_set_range(mma8451* handle, unsigned char range)
