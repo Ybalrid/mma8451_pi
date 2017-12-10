@@ -38,6 +38,10 @@ int main()
   //get a measurement
   mma8451_vector3 acceleration = mma8451_get_acceleration_vector(&sensor);
   
+  //There's less overhead on letting the library fill in your own object
+  mma8451_vector3 vect;
+  mma8451_get_acceleration(&sensor, &vect);
+  
   return 0;
 }
 
