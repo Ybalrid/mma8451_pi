@@ -17,7 +17,7 @@ Build and install the library with the makefile. The makefile will, by default, 
 Note to raspbian user: with this configuration, you may need to add the "/usr/local" path to your ldconfig
 
 ```bash
-# echo "/usr/local/lib" > /etc/ld.conf/so/d/local.conf;
+# echo "/usr/local/lib" > /etc/ld.conf.so.d/local.conf;
 # ldconfig #to make the system know that theses libraries are here
 ```
 
